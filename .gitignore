@@ -1,0 +1,8 @@
+/docs/
+/experiments/
+/data/processed/brent_gpr_daily.csv
+/data/raw/brent_eia_daily.xls
+/data/raw/gpr_daily_recent_20261019.xls
+/.venv/
+/.ipynb_checkpoints/
+__pycache__/
