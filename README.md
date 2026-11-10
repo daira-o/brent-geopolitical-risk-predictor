@@ -2,100 +2,75 @@
 
 ## Descripción
 
-Proyecto final de Data Science para EnergIA Digital de Fundación YPF. Integra el precio mensual del petróleo Brent, el índice de riesgo geopolítico (GPR) y variables mundiales de producción y consumo para estudiar si esas señales ayudan a anticipar el nivel, la dirección y el retorno del Brent del mes siguiente.
+Proyecto final de Data Science para EnergIA Digital de Fundación YPF. Se eligió el Brent porque es una referencia internacional del precio del petróleo, está expuesto a perturbaciones geopolíticas y cuenta con una serie mensual extensa y pública. El proyecto integra su precio con el índice de riesgo geopolítico (GPR) y variables mundiales de producción y consumo para estudiar el nivel, la dirección y el retorno del mes siguiente.
 
 ## Pregunta de investigación
 
-¿La incorporación de riesgo geopolítico e información sobre oferta y demanda mundial mejora la predicción mensual respecto de utilizar únicamente la historia del Brent? La pregunta se evalúa en dos problemas distintos: el nivel del precio del mes siguiente y su retorno porcentual.
+¿La incorporación de riesgo geopolítico e información sobre oferta y demanda mundial mejora la predicción mensual del Brent respecto de utilizar únicamente su propia historia? La pregunta se evalúa en dos problemas diferentes: el nivel del precio del mes siguiente y su retorno porcentual.
 
 ## Fuentes de datos
 
-El precio Brent proviene de la serie mensual [Europe Brent Spot Price FOB de EIA](https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?f=m&n=PET&s=RBRTE); GPR, GPRT y GPRA provienen de [Caldara e Iacoviello](https://www.matteoiacoviello.com/gpr.htm); y las series `PAPR_WORLD`, `PATC_WORLD` y `COPR_WORLD` provienen del [STEO Data Browser de EIA](https://www.eia.gov/outlooks/steo/data/browser/). Los archivos originales se conservan en `data/raw/`.
+El precio proviene de la serie mensual [Europe Brent Spot Price FOB de EIA](https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?f=m&n=PET&s=RBRTE); GPR, GPRT y GPRA provienen de [Caldara e Iacoviello](https://www.matteoiacoviello.com/gpr.htm); y `PAPR_WORLD`, `PATC_WORLD` y `COPR_WORLD` provienen del [STEO Data Browser de EIA](https://www.eia.gov/outlooks/steo/data/browser/). Los archivos originales se conservan sin modificaciones en `data/raw/`.
 
-## Dataset
+## Dataset y preprocesamiento
 
-`data/processed/brent_gpr_market_monthly.csv` contiene 336 observaciones mensuales entre enero de 1998 y diciembre de 2025. Incluye Brent, GPR y sus componentes, producción mundial de petróleo y otros líquidos, consumo mundial, producción mundial de crudo y el balance producción-consumo. El último mes no tiene objetivo futuro porque enero de 2026 queda fuera del período elegido. El experimento de retornos recalcula su objetivo desde los precios, sin modificar este archivo.
+`data/processed/brent_gpr_market_monthly.csv` contiene 336 observaciones entre enero de 1998 y diciembre de 2025: Brent, GPR y sus componentes, producción mundial de petróleo y otros líquidos, consumo mundial, producción mundial de crudo y balance producción-consumo. El notebook 01 corrige fechas y tipos, controla duplicados y faltantes, valida unidades, transforma STEO a frecuencia mensual y calcula el balance entre categorías compatibles (`PAPR_WORLD - PATC_WORLD`); el último mes queda sin objetivo futuro porque enero de 2026 está fuera del período analizado.
 
-## Preprocesamiento
+## Hallazgos del análisis exploratorio
 
-El notebook 01 corrige fechas y tipos, controla duplicados y faltantes, valida unidades, transforma la tabla STEO de formato ancho a mensual y calcula el balance únicamente entre categorías compatibles (`PAPR_WORLD - PATC_WORLD`). Los datos 2026-2027 se excluyen; la historia 1998-2025 se documenta como serie revisada del vintage STEO de septiembre de 2026.
+El Brent presenta alta persistencia en niveles y volatilidad variable, mientras que GPR contiene picos extraordinarios pero mantiene una relación bivariada débil con el retorno del Brent del mes siguiente. Producción y consumo comparten tendencias de largo plazo; el balance resume sus desequilibrios mensuales, aunque tampoco explica por sí solo el precio futuro. Los valores extremos se conservan porque representan episodios reales y las asociaciones se interpretan de forma descriptiva, sin atribuir causalidad.
 
-## Hallazgos del AED
+## Escenarios, modelos y validación
 
-El Brent muestra alta persistencia en niveles y volatilidad variable. El GPR presenta picos extraordinarios, pero su relación bivariada con el retorno del Brent del mes siguiente es débil. Producción y consumo comparten tendencias de largo plazo; el balance resume mejor los desequilibrios mensuales, aunque tampoco explica por sí solo el precio futuro. Los outliers se conservan porque representan episodios reales.
+Los experimentos comparan tres escenarios sobre las mismas fechas: A) historia del Brent, B) Brent + GPR y C) Brent + GPR + mercado mundial. Las variables externas ingresan con un mes de rezago; la selección utiliza cinco folds expansivos de `TimeSeriesSplit` sobre el 80 % inicial y el 20 % final se reserva para evaluación histórica. El notebook 03 compara Ridge, Random Forest y Gradient Boosting frente a persistencia para el nivel, y Logistic Regression y Random Forest frente a la clase mayoritaria para la dirección; el notebook 04 reutiliza las fechas, modelos e hiperparámetros para retornos, con retorno cero y último retorno como baselines. El test no participa en la selección.
 
-## Modelos y validación
+## Resultados supervisados
 
-Se comparan exactamente tres escenarios: A) historia del Brent, B) Brent + GPR y C) Brent + GPR + mercado mundial. Todas las fechas son comunes, las variables externas tienen un mes de retraso, el test corresponde a 66 orígenes entre junio de 2020 y noviembre de 2025 y la selección usa cinco folds de `TimeSeriesSplit` con pipelines.
+En regresión de nivel, Ridge-A obtuvo MAE 5,014, RMSE 6,238 y R² 0,864 en test, frente a MAE 4,942 y RMSE 6,243 de la persistencia; la diferencia es despreciable y no representa una mejora consistente. En clasificación, Random Forest-B fue seleccionado previamente por validación temporal con balanced accuracy CV 0,532, pero obtuvo 0,456 en test, por debajo del baseline 0,500. Random Forest-C alcanzó ROC-AUC 0,555 en test, resultado que se informa como diagnóstico y no permite reemplazar retrospectivamente al escenario B seleccionado mediante validación.
 
-El notebook 03 predice el nivel con Ridge, Random Forest y Gradient Boosting frente a persistencia, y complementa el análisis con clasificación. El notebook 04 reutiliza los mismos regresores, hiperparámetros, observaciones y folds para predecir:
+## Resultados de retornos
 
-$$r_{t+1}=100\left(\frac{P_{t+1}}{P_t}-1\right).$$
+Random Forest-C fue la configuración elegida solo por validación temporal: obtuvo RMSE CV 11,805 puntos porcentuales frente a 10,119 del baseline cero. En test logró MAE 6,580, RMSE 7,828 y R² −0,075; retorno cero obtuvo MAE 6,277, RMSE 7,608 y R² −0,016, y repetir el último retorno obtuvo RMSE 10,391 y R² −0,895. Con Random Forest fijo, las pequeñas mejoras de A a B y de B a C en validación no fueron estables en test; por lo tanto, no hay evidencia robusta de aporte predictivo adicional. Las métricas de nivel están en USD/barril y las de retornos en puntos porcentuales, por lo que no se comparan directamente.
 
-Sus baselines son retorno cero y repetición del último retorno observado. Imputación o escalado, cuando corresponden, se ajustan únicamente dentro de cada partición de entrenamiento. El test no participa en la selección.
+## Análisis de 2020–2022
 
-## Resultados: nivel del precio
+El test incluye 30 meses objetivo entre julio de 2020 y diciembre de 2022 y 36 posteriores. En retornos, el modelo seleccionado obtuvo RMSE 9,557 durante 2020–2022 y 6,019 después, frente a 9,515 y 5,538 del baseline cero; en nivel, Ridge-A obtuvo 7,820 USD/barril durante ese período y 4,513 después. La comparación es descriptiva y no atribuye causalidad a la pandemia ni a las perturbaciones energéticas de 2022.
 
-En regresión, Ridge del escenario A obtuvo MAE 5,014, RMSE 6,238 y R² 0,864 en test; la persistencia obtuvo MAE 4,942 y RMSE 6,243, por lo que la diferencia es despreciable y no constituye una mejora consistente. En clasificación, el mejor modelo entrenado fue Random Forest optimizado del escenario C, con accuracy 0,485, balanced accuracy 0,491, F1 0,370 y ROC-AUC 0,555; no superó el baseline de balanced accuracy 0,500.
+## Clustering
 
-El R² alto del nivel refleja en gran medida la persistencia temporal: el modelo aprendido no mejora de manera consistente al baseline aun cuando ambos explican gran parte de la variación del nivel.
-
-## Resultados: retornos mensuales
-
-La configuración elegida solo por validación temporal fue Random Forest en C. Su RMSE CV fue 11,805 puntos porcentuales, peor que 10,119 del baseline de retorno cero. En el test histórico obtuvo MAE 6,580, RMSE 7,828 y R² −0,075; retorno cero obtuvo MAE 6,277, RMSE 7,608 y R² −0,016. Repetir el último retorno fue aún peor: RMSE 10,391 y R² −0,895.
-
-Con Random Forest fijo para aislar el efecto de las variables, GPR redujo el RMSE CV de A a B en 0,351 puntos y el mercado redujo B a C en 0,121. Esa mejora pequeña no venció al baseline y no fue estable en test: B empeoró A en 0,525 puntos, mientras C mejoró B en 0,566. Por tanto, no hay evidencia robusta de aporte predictivo adicional. Un R² negativo es esperable cuando un modelo de retornos rinde peor que una referencia simple; no implica un error de implementación.
-
-Los MAE y RMSE de precios están en USD/barril y los de retornos en puntos porcentuales, por lo que no se comparan directamente.
-
-## Período 2020–2022
-
-El test contiene 30 meses objetivo entre julio de 2020 y diciembre de 2022 y 36 meses posteriores. Para el modelo de retornos seleccionado, el RMSE fue 9,557 puntos porcentuales en 2020–2022 frente a 6,019 en el resto; retorno cero obtuvo 9,515 y 5,538, respectivamente. En nivel, Ridge A obtuvo RMSE 7,820 USD/barril en 2020–2022 y 4,513 después.
-
-La ventana incluye la recuperación posterior al shock inicial de la pandemia y las perturbaciones energéticas de 2022 asociadas con la invasión rusa de Ucrania, pero la comparación es descriptiva: no identifica causalidad ni atribuye todos los errores a esos acontecimientos. La cantidad de observaciones también limita la generalización.
-
-## Cuarta preentrega: clustering
-
-El notebook `05_clustering.ipynb` estudia si las condiciones mensuales del mercado forman grupos descriptivos sin utilizar etiquetas ni objetivos futuros. La muestra contiene 330 meses entre julio de 1998 y diciembre de 2025; los primeros seis meses se excluyen porque todavía no existe una ventana completa para calcular volatilidad histórica.
-
-Las variables son el precio contemporáneo del Brent, su retorno mensual, la volatilidad móvil de seis meses, `log1p(GPR)` y el balance mundial producción-consumo. GPRT y GPRA se excluyen por su alta redundancia con GPR; producción, consumo y producción de crudo tampoco se incorporan simultáneamente porque comparten una fuerte tendencia. Los outliers se conservan como episodios reales, la transformación logarítmica reduce la asimetría de GPR de 4,061 a 1,039 y `StandardScaler` pone todas las variables en una escala comparable.
-
-Se adaptaron las implementaciones de K-Means, codo, silhouette, estandarización y PCA de los materiales del curso. Se evaluaron K=2 a K=8 con `k-means++`, `n_init=50`, `max_iter=300` y `random_state=42`. K=5 obtuvo el mayor silhouette, 0,234, pero creó un grupo de solo 5 meses. Se eligió K=3 como compromiso entre métricas, tamaño e interpretación: silhouette 0,2008, Davies-Bouldin 1,6012 y grupos de 78, 114 y 138 meses. Las cinco semillas verificadas produjeron la misma partición (ARI=1).
-
-| Grupo | Meses | Perfil promedio |
-|---|---:|---|
-| 0 | 78 | Brent USD 35,72; retorno 6,39%; volatilidad 13,31%; GPR 78,33; balance −0,72. |
-| 1 | 114 | Brent USD 53,55; retorno −4,37%; volatilidad 8,23%; GPR 141,26; balance 0,69. |
-| 2 | 138 | Brent USD 88,63; retorno 2,42%; volatilidad 5,95%; GPR 92,87; balance −0,77. |
-
-La proyección PCA en dos dimensiones explica 55,24% de la varianza y muestra superposición entre grupos. Hubo 77 cambios en 329 transiciones mensuales; durante 2020–2022 los 36 meses se repartieron entre los tres grupos (10, 11 y 15), por lo que ese período no constituye un régimen único.
-
-El clustering complementa los modelos supervisados al resumir combinaciones históricas recurrentes, pero no demuestra capacidad predictiva, independencia del efecto de GPR ni causalidad. El silhouette bajo, la ausencia de un codo marcado, la sensibilidad de K-Means a outliers y sus supuestos de geometría aproximadamente esférica limitan la interpretación. DBSCAN se revisó en el material del curso, pero no se agregó porque no había evidencia suficiente para fijar sus parámetros de densidad de manera defendible.
+El notebook 05 aplica K-Means sobre 330 meses con precio contemporáneo, retorno mensual, volatilidad móvil de seis meses, `log1p(GPR)` y balance mundial, sin usar objetivos futuros. Se evaluó K=2 a K=8 con `k-means++`, `n_init=50`, `max_iter=300` y `random_state=42`: K=5 obtuvo el mayor silhouette (0,234) pero creó un grupo de solo 5 meses, por lo que se eligió K=3 como compromiso entre separación, tamaño e interpretación. La solución final obtuvo silhouette 0,2008, Davies–Bouldin 1,6012, grupos de 78, 114 y 138 meses y estabilidad ARI=1 en cinco semillas; PCA explicó 55,24 % de la varianza y mostró superposición. El resultado resume combinaciones históricas recurrentes, pero no demuestra predicción, causalidad ni regímenes completamente separados.
 
 ## Conclusión
 
-Con este diseño y período no aparece evidencia robusta de que agregar GPR u oferta y demanda mejore la predicción mensual. En nivel, la persistencia explica el R² elevado y compite con Ridge A. En retornos, todos los escenarios quedan detrás del baseline cero y las pequeñas mejoras internas del bosque cambian entre validación y test. El resultado negativo es informativo: las variables adicionales no aportan una señal incremental estable bajo una evaluación temporal comparable.
+Con este diseño y período no aparece evidencia robusta de que agregar GPR u oferta y demanda mejore la predicción mensual frente a baselines simples. En nivel, la persistencia explica gran parte del desempeño; en dirección, el modelo seleccionado queda debajo de la clase mayoritaria; y en retornos, todos los escenarios quedan detrás del retorno cero. El resultado negativo es informativo: las variables adicionales no aportan una señal incremental estable bajo una evaluación temporal comparable.
 
 ## Limitaciones
 
-El test fue observado durante el desarrollo y se interpreta como evaluación histórica, no como holdout completamente intacto. STEO contiene historia revisada y el rezago de un mes aproxima la disponibilidad real sin reconstruir calendarios históricos de publicación. La frecuencia mensual deja una muestra pequeña, especialmente para modelos flexibles y para separar 2020–2022. SHAP y LIME se conservan como complementos del experimento de nivel y no sustituyen la comparación contra baselines.
+El test ya fue inspeccionado y se interpreta como evaluación histórica, no como holdout completamente intacto. STEO contiene historia revisada de la edición de septiembre de 2026, por lo que no reproduce exactamente la información disponible en cada fecha; el rezago de un mes aproxima la publicación real sin reconstruir calendarios históricos. La frecuencia mensual deja una muestra pequeña, especialmente para modelos flexibles y para separar 2020–2022. SHAP y LIME son diagnósticos del experimento de nivel y no sustituyen la comparación contra baselines.
 
-## Estructura
+## Estructura publicada
 
 ```text
-data/raw/                                archivos originales
-data/processed/brent_gpr_market_monthly.csv
-notebooks/01_preprocesamiento.ipynb      preparación e integración
-notebooks/02_exploracion_datos.ipynb     análisis exploratorio
-notebooks/03_modelado_supervisado.ipynb  regresión y clasificación
-notebooks/04_prediccion_retornos.ipynb   retornos mensuales y análisis 2020-2022
-notebooks/05_clustering.ipynb             regímenes descriptivos mediante K-Means
-docs/                                    material local del curso, ignorado por Git
+README.md
+requirements.txt
+data/
+├── raw/
+│   ├── 3a._International_Petroleum_and_Other_Liquids_Production_Consumption_and_Inventories.csv
+│   ├── brent_eia.xls
+│   └── gpr_monthly.xls
+└── processed/
+    └── brent_gpr_market_monthly.csv
+notebooks/
+├── 01_preprocesamiento.ipynb
+├── 02_exploracion_datos.ipynb
+├── 03_modelado_supervisado.ipynb
+├── 04_prediccion_retornos.ipynb
+└── 05_clustering.ipynb
 ```
 
-## Ejecución
+## Reproducibilidad
 
-Crear y activar un entorno virtual, instalar `requirements.txt` y abrir los notebooks con ese kernel. Ejecutar desde la raíz del repositorio en el orden `01 → 02 → 03 → 04 → 05`; el notebook 01 reconstruye el CSV procesado y los siguientes lo consumen. Los notebooks 04 y 05 son independientes del 03 y pueden ejecutarse directamente si el CSV procesado ya existe.
+El proyecto fue validado con **Python 3.12.14** y las dependencias resueltas desde `requirements.txt`. Para reproducirlo, crear un entorno virtual y ejecutar los notebooks desde la raíz en el orden `01 → 02 → 03 → 04 → 05`; el notebook 01 reconstruye el CSV procesado y los demás lo consumen. Los notebooks 04 y 05 son independientes del 03 si el CSV ya existe.
 
 ```powershell
 python -m venv .venv
